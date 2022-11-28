@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use rocksdb::{checkpoint::Checkpoint, ColumnFamilyDescriptor, WriteBatch};
 
 use crate::error::{Error, Result};
-use crate::proofs::{encode_into, query::QueryItem, Query};
+use crate::proofs::{encode_into, query::QueryItem, Op as ProofOp, Query};
 use crate::tree::{Batch, Commit, Fetch, Hash, Link, Op, RefWalker, Tree, Walker, NULL_HASH};
 
 const ROOT_KEY_KEY: &[u8] = b"root";
@@ -145,10 +145,10 @@ impl Merk {
     ///
     /// # Example
     /// ```
-    /// # let mut store = merk::test_utils::TempMerk::new().unwrap();
+    /// # let mut store = merkdb::test_utils::TempMerk::new().unwrap();
     /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))], &[]).unwrap();
     ///
-    /// use merk::Op;
+    /// use merkdb::Op;
     ///
     /// let batch = &[
     ///     (vec![1, 2, 3], Op::Put(vec![4, 5, 6])), // puts value [4,5,6] to key [1,2,3]
@@ -187,10 +187,10 @@ impl Merk {
     ///
     /// # Example
     /// ```
-    /// # let mut store = merk::test_utils::TempMerk::new().unwrap();
+    /// # let mut store = merkdb::test_utils::TempMerk::new().unwrap();
     /// # store.apply(&[(vec![4,5,6], Op::Put(vec![0]))], &[]).unwrap();
     ///
-    /// use merk::Op;
+    /// use merkdb::Op;
     ///
     /// let batch = &[
     ///     (vec![1, 2, 3], Op::Put(vec![4, 5, 6])), // puts value [4,5,6] to key [1,2,3]
@@ -272,6 +272,20 @@ impl Merk {
         Self::open(path)
     }
 
+    pub fn execute_query(&self, query: Query) -> Result<LinkedList<ProofOp>> {
+        let query_vec: Vec<QueryItem> = query.into_iter().map(Into::into).collect();
+        self.use_tree_mut(|maybe_tree| {
+            let tree = match maybe_tree {
+                None => {
+                    return Err(Error::Proof("Cannot create proof for empty tree".into()));
+                }
+                Some(tree) => tree,
+            };
+            let mut ref_walker = RefWalker::new(tree, self.source());
+            let ops = ref_walker.execute_query(query_vec.as_slice())?;
+            Ok(ops)
+        })
+    }
     /// Creates a Merkle proof for the list of queried keys. For each key in the
     /// query, if the key is found in the store then the value will be proven to
     /// be in the tree. For each key in the query that does not exist in the
@@ -508,8 +522,10 @@ fn fetch_existing_node(db: &rocksdb::DB, key: &[u8]) -> Result<Tree> {
 #[cfg(test)]
 mod test {
     use super::{Merk, MerkSource, RefWalker};
+    use crate::proofs::query::Query;
     use crate::test_utils::*;
     use crate::Op;
+    use std::ops::Range;
     use std::thread;
     use tempdir::TempDir;
     // TODO: Close and then reopen test
@@ -607,6 +623,31 @@ mod test {
             .expect("apply failed");
         let val = merk.get_aux(&[1, 2, 3]).unwrap();
         assert_eq!(val, Some(vec![4, 5, 6]));
+    }
+
+    #[test]
+    fn test_range_query() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(path).expect("failed to open merk");
+        // uncached
+        merk.apply(
+            &[
+                (vec![0], Op::Put(vec![0])),
+                (vec![1], Op::Put(vec![1])),
+                (vec![2], Op::Put(vec![2])),
+                (vec![3], Op::Put(vec![3])),
+            ],
+            &[],
+        )
+        .unwrap();
+        let mut query = Query::new();
+        let range = Range {
+            start: vec![1],
+            end: vec![4],
+        };
+        query.insert_range(range);
+        let ops = merk.execute_query(query).unwrap();
+        assert_eq!(3, ops.len());
     }
 
     #[test]
