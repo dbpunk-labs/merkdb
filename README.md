@@ -1,4 +1,5 @@
 # merk
+merkdb is forked from [merk](https://github.com/nomic-io/merk), this [isuse](https://github.com/dbpunk-labs/db3/issues/100) explains why we must build merkdb
 
 *High-performance Merkle key/value store*
 
