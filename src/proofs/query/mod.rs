@@ -245,6 +245,54 @@ where
         Node::Hash(self.tree().hash())
     }
 
+    #[cfg(feature = "full")]
+    pub(crate) fn execute_query(&mut self, query: &[QueryItem]) -> Result<LinkedList<Op>> {
+        let node_key = QueryItem::Key(self.tree().key().to_vec());
+        let search = query.binary_search_by(|key| key.cmp(&node_key));
+        let (left_items, right_items) = match search {
+            Ok(index) => {
+                let item = &query[index];
+                let left_bound = item.lower_bound();
+                let right_bound = item.upper_bound().0;
+                // if range starts before this node's key, include it in left
+                // child's query
+                let left_query = if left_bound < self.tree().key() {
+                    &query[..=index]
+                } else {
+                    &query[..index]
+                };
+                // if range ends after this node's key, include it in right
+                // child's query
+                let right_query = if right_bound > self.tree().key() {
+                    &query[index..]
+                } else {
+                    &query[index + 1..]
+                };
+                (left_query, right_query)
+            }
+            Err(index) => (&query[..index], &query[index..]),
+        };
+        let mut left_ops = self.execute_child_query(true, left_items)?;
+        let mut right_ops = self.execute_child_query(false, right_items)?;
+        if let Ok(_) = search {
+            left_ops.push_back(Op::Push(self.to_kv_node()));
+        }
+        left_ops.append(&mut right_ops);
+        Ok(left_ops)
+    }
+    #[cfg(feature = "full")]
+    fn execute_child_query(&mut self, left: bool, query: &[QueryItem]) -> Result<LinkedList<Op>> {
+        Ok(if !query.is_empty() {
+            if let Some(mut child) = self.walk(left)? {
+                child.execute_query(query)?
+            } else {
+                LinkedList::new()
+            }
+        } else {
+            LinkedList::new()
+        })
+    }
+
     /// Generates a proof for the list of queried keys. Returns a tuple
     /// containing the generated proof operators, and a tuple representing if
     /// any keys were queried were less than the left edge or greater than the
