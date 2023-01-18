@@ -17,18 +17,17 @@ pub type Hash = [u8; HASH_LENGTH];
 ///
 /// **NOTE:** This will panic if the key is longer than 255 bytes, or the value
 /// is longer than 65,535 bytes.
-pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
+pub fn kv_hash<D: Digest>(key: &[u8], value: &[u8]) -> Hash {
     // TODO: result instead of panic
-    // TODO: make generic to allow other hashers
-    let mut hasher = Hasher::new();
-    hasher.update(&[0]);
+    let mut hasher = D::new();
+    hasher.update([0]);
 
     let key_length = u32::try_from(key.len()).expect("key must be less than 2^32 bytes");
-    hasher.update(&key_length.to_le_bytes());
+    hasher.update(key_length.to_le_bytes());
     hasher.update(key);
 
     let val_length = u32::try_from(value.len()).expect("value must be less than 2^32 bytes");
-    hasher.update(&val_length.to_le_bytes());
+    hasher.update(val_length.to_le_bytes());
     hasher.update(value);
 
     let res = hasher.finalize();
@@ -39,10 +38,9 @@ pub fn kv_hash(key: &[u8], value: &[u8]) -> Hash {
 
 /// Hashes a node based on the hash of its key/value pair, the hash of its left
 /// child (if any), and the hash of its right child (if any).
-pub fn node_hash(kv: &Hash, left: &Hash, right: &Hash) -> Hash {
-    // TODO: make generic to allow other hashers
-    let mut hasher = Hasher::new();
-    hasher.update(&[1]);
+pub fn node_hash<D: Digest>(kv: &Hash, left: &Hash, right: &Hash) -> Hash {
+    let mut hasher = D::new();
+    hasher.update([1]);
     hasher.update(kv);
     hasher.update(left);
     hasher.update(right);

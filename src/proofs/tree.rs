@@ -1,6 +1,6 @@
 use super::{Node, Op};
 use crate::error::{Error, Result};
-use crate::tree::{kv_hash, node_hash, Hash, NULL_HASH};
+use crate::tree::{kv_hash, node_hash, Hash, Hasher, NULL_HASH};
 
 /// Contains a tree's child node and its hash. The hash can always be assumed to
 /// be up-to-date.
@@ -43,14 +43,14 @@ impl Tree {
     /// Gets or computes the hash for this tree node.
     pub fn hash(&self) -> Hash {
         fn compute_hash(tree: &Tree, kv_hash: Hash) -> Hash {
-            node_hash(&kv_hash, &tree.child_hash(true), &tree.child_hash(false))
+            node_hash::<Hasher>(&kv_hash, &tree.child_hash(true), &tree.child_hash(false))
         }
 
         match &self.node {
             Node::Hash(hash) => *hash,
             Node::KVHash(kv_hash) => compute_hash(self, *kv_hash),
             Node::KV(key, value) => {
-                let kv_hash = kv_hash(key.as_slice(), value.as_slice());
+                let kv_hash = kv_hash::<Hasher>(key.as_slice(), value.as_slice());
                 compute_hash(self, kv_hash)
             }
         }
@@ -314,10 +314,12 @@ mod test {
             assert_eq!(tree.height, expected_height);
             tree.left
                 .as_ref()
-                .map(|l| recurse(&l.tree, expected_height - 1));
+                .into_iter()
+                .for_each(|l| recurse(&l.tree, expected_height - 1));
             tree.right
                 .as_ref()
-                .map(|r| recurse(&r.tree, expected_height - 1));
+                .into_iter()
+                .for_each(|r| recurse(&r.tree, expected_height - 1));
         }
 
         let tree = make_7_node_prooftree();

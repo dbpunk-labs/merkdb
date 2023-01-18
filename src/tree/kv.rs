@@ -1,4 +1,4 @@
-use super::hash::{kv_hash, Hash, HASH_LENGTH, NULL_HASH};
+use super::hash::{kv_hash, Hash, Hasher, HASH_LENGTH, NULL_HASH};
 use ed::{Decode, Encode, Result};
 use std::io::{Read, Write};
 
@@ -19,7 +19,7 @@ impl KV {
     #[inline]
     pub fn new(key: Vec<u8>, value: Vec<u8>) -> Self {
         // TODO: length checks?
-        let hash = kv_hash(key.as_slice(), value.as_slice());
+        let hash = kv_hash::<Hasher>(key.as_slice(), value.as_slice());
         KV { key, value, hash }
     }
 
@@ -36,7 +36,7 @@ impl KV {
     pub fn with_value(mut self, value: Vec<u8>) -> Self {
         // TODO: length check?
         self.value = value;
-        self.hash = kv_hash(self.key(), self.value());
+        self.hash = kv_hash::<Hasher>(self.key(), self.value());
         self
     }
 
