@@ -274,7 +274,7 @@ where
         };
         let mut left_ops = self.execute_child_query(true, left_items)?;
         let mut right_ops = self.execute_child_query(false, right_items)?;
-        if let Ok(_) = search {
+        if search.is_ok() {
             left_ops.push_back(Op::Push(self.to_kv_node()));
         }
         left_ops.append(&mut right_ops);
