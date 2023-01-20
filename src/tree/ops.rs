@@ -1,4 +1,4 @@
-use super::{Fetch, Link, Tree, Walker};
+use super::{Fetch, Tree, Walker};
 use crate::error::Result;
 use std::collections::LinkedList;
 use std::fmt;
@@ -33,9 +33,10 @@ pub type Batch = [BatchEntry];
 /// which always keeps the state in memory.
 #[derive(Clone)]
 pub struct PanicSource {}
+
 impl Fetch for PanicSource {
-    fn fetch(&self, _link: &Link) -> Result<Tree> {
-        unreachable!("'fetch' should not have been called")
+    fn fetch_by_key(&self, _: &[u8]) -> Result<Option<Tree>> {
+        unreachable!()
     }
 }
 
