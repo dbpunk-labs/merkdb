@@ -15,10 +15,10 @@ impl Debug for Tree {
             if let Some(child_link) = cursor.link(true) {
                 stack.push((child_link.key().to_vec(), cursor.key().to_vec()));
                 if let Some(child_tree) = child_link.tree() {
-                    traverse(f, child_tree, stack, true)?;
+                    traverse(f, child_tree, stack, true)
                 } else {
-                    traverse_pruned(f, child_link, stack, true)?;
-                }
+                    traverse_pruned(f, child_link, stack, true)
+                }?;
                 stack.pop();
             }
 
