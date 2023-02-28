@@ -525,10 +525,9 @@ fn load_root(db: &DB) -> Result<Option<Tree>> {
 
 #[cfg(test)]
 mod test {
-    use super::{Merk, MerkSource, RefWalker};
+    use super::{Merk, MerkSource, Op, RefWalker};
     use crate::proofs::query::Query;
     use crate::test_utils::*;
-    use crate::Op;
     use crate::tree;
     use std::ops::Range;
     use std::thread;
